@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import rinha_backend_2025.paymentgateway.dto.PaymentRequest;
-import rinha_backend_2025.paymentgateway.metrics.PaymentStats;
 import rinha_backend_2025.paymentgateway.model.PaymentResult;
 import rinha_backend_2025.paymentgateway.model.ProcessorType;
 
