@@ -30,10 +30,22 @@ public class PaymentProcessorClient {
         ProcessorType preferred = decideProcessor();
         ProcessorType alternate = (preferred == ProcessorType.DEFAULT) ? ProcessorType.FALLBACK : ProcessorType.DEFAULT;
 
+        if (healthTracker.isCircuitOpen(preferred)) {
+            return tryWithRetry(alternate, request)
+                    .orElse(failResult(request));
+        }
+
         return tryWithRetry(preferred, request)
-                .or(() -> tryWithRetry(alternate, request))
-                .orElse(failResult(request));
+                .orElseGet(() -> {
+                    if (!healthTracker.isCircuitOpen(alternate)) {
+                        return tryWithRetry(alternate, request)
+                                .orElse(failResult(request));
+                    } else {
+                        return failResult(request);
+                    }
+                });
     }
+
 
     private ProcessorType decideProcessor() {
         Optional<ProcessorHealth> healthOpt = healthCheckService.getHealth(ProcessorType.DEFAULT);
