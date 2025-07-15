@@ -1,32 +1,128 @@
-# Read Me First
-The following was discovered as part of building this project:
+### Estrutura do Projeto - EAP
 
-* The original package name 'rinha-backend-2025.paymentgateway' is invalid and this project uses 'rinha_backend_2025.paymentgateway' instead.
+<img width="1136" height="1425" alt="image" src="https://github.com/user-attachments/assets/ff36c3d7-4b34-41a8-bbec-55e6f9495f02" />
 
-# Getting Started
 
-### Reference Documentation
-For further reference, please consider the following sections:
+### Responsabilidades de Classe:
 
-* [Official Apache Maven documentation](https://maven.apache.org/guides/index.html)
-* [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/3.5.3/maven-plugin)
-* [Create an OCI image](https://docs.spring.io/spring-boot/3.5.3/maven-plugin/build-image.html)
-* [Spring Web](https://docs.spring.io/spring-boot/3.5.3/reference/web/servlet.html)
-* [Spring Boot DevTools](https://docs.spring.io/spring-boot/3.5.3/reference/using/devtools.html)
-* [Validation](https://docs.spring.io/spring-boot/3.5.3/reference/io/validation.html)
+### 📁 `config/`
+### ✅ `WebClientConfig.java`
 
-### Guides
-The following guides illustrate how to use some features concretely:
+Configura o `WebClient.Builder` como bean Spring, permitindo injetar e reutilizar em toda a aplicação para chamadas HTTP reativas.
 
-* [Building a RESTful Web Service](https://spring.io/guides/gs/rest-service/)
-* [Serving Web Content with Spring MVC](https://spring.io/guides/gs/serving-web-content/)
-* [Building REST services with Spring](https://spring.io/guides/tutorials/rest/)
-* [Validation](https://spring.io/guides/gs/validating-form-input/)
+---
 
-### Maven Parent overrides
+### 📁 `controller/`
 
-Due to Maven's design, elements are inherited from the parent POM to the project POM.
-While most of the inheritance is fine, it also inherits unwanted elements like `<license>` and `<developers>` from the parent.
-To prevent this, the project POM contains empty overrides for these elements.
-If you manually switch to a different parent and actually want the inheritance, you need to remove those overrides.
+### ✅ `PaymentController.java`
 
+Classe que expõe os endpoints REST:
+
+- `POST /payments`: recebe um pagamento e o enfileira.
+- `GET /payments/summary`: retorna um resumo dos pagamentos processados, com suporte a filtro por data (`from` e `to`).
+
+---
+
+### 📁 `dto/`
+
+### ✅ `PaymentRequest.java`
+
+DTO de entrada no `POST /payments`. Contém:
+
+- `correlationId`: identificador único da transação.
+- `amount`: valor da transação.
+
+Método `toProcessorPayload(...)` gera o DTO para envio ao processador, incluindo timestamp.
+
+### ✅ `ProcessorPaymentRequest.java`
+
+DTO usado para enviar os dados do pagamento ao processador, contendo:
+
+- `correlationId`
+- `amount`
+- `requestedAt`: instante de requisição.
+
+---
+
+### 📁 `model/`
+
+### ✅ `PaymentResult.java`
+
+Classe que representa o resultado do processamento do pagamento, contendo:
+
+- `correlationId`
+- `amount`
+- `processorType` (DEFAULT ou FALLBACK)
+- `fee`
+- `success`
+- `processedAt`: timestamp do processamento.
+
+### ✅ `ProcessorHealth.java`
+
+Record usado para representar o estado de saúde do processador:
+
+- `failing`: indica se está com falha.
+- `minResponseTime`: tempo mínimo de resposta simulado.
+
+### ✅ `ProcessorType.java`
+
+Enum que define os tipos de processadores:
+
+- `DEFAULT`
+- `FALLBACK`
+
+---
+
+### 📁 `service/`
+
+### ✅ `PaymentService.java`
+
+- Enfileira os pagamentos (`ConcurrentLinkedQueue`).
+- Processa periodicamente os pagamentos com `@Scheduled`.
+- Armazena os resultados processados por processador (`Map<ProcessorType, List<PaymentResult>>`).
+- Gera o resumo dos pagamentos processados (método `getSummary(...)`).
+
+### ✅ `PaymentProcessorClient.java`
+
+- Decide dinamicamente o melhor processador baseado em taxa e saúde.
+- Faz até 3 tentativas com backoff (50ms, 100ms, 150ms).
+- Utiliza `WebClient` para enviar a requisição HTTP ao processador.
+- Em caso de falha, realiza fallback para o outro processador.
+- Retorna um `PaymentResult`.
+
+### ✅ `ConfigService.java`
+
+- Busca e atualiza periodicamente (a cada 5s) a taxa (`fee`) dos processadores consultando o endpoint `/admin/payments-summary`.
+- Armazena essas taxas em cache (`Map<ProcessorType, BigDecimal>`).
+
+### ✅ `HealthCheckService.java`
+
+- Verifica a saúde dos processadores a partir do endpoint `/payments/service-health`.
+- Armazena o resultado em cache por 5 segundos (`TTL`).
+- Utilizado pelo `PaymentProcessorClient` para decisões mais inteligentes.
+
+### ✅ `ProcessorHealthTracker.java`
+
+- Implementa um **circuit breaker leve**:
+- Registra falhas e sucessos por processador.
+- Após 3 falhas consecutivas, “abre o circuito” e bloqueia o uso do processador por 5 segundos.
+- Reabilita automaticamente após esse tempo.
+
+
+### Funcionalidade x Classe Responsável
+
+- Recebe pagamentos via API REST (POST /payments) - PaymentController
+- Enfileira os pagamentos em memória - PaymentService (com ConcurrentLinkedQueue)
+- Faz flush periódico da fila - PaymentService (método flush com @Scheduled)
+- Escolhe o processador mais barato e saudável - PaymentProcessorClient (método sendToBestProcessor)
+- Faz fallback se o processador estiver com falha ou lento - PaymentProcessorClient + ProcessorHealthTracker
+- Expõe o resumo dos pagamentos via /payments/summary - PaymentController → PaymentService.getSummary(...)
+
+### Técnicas usadas
+- Fila em memória com flush assíncrono
+- WebClient com timeout	PaymentProcessorClient
+- Retry com backoff (50ms, 100ms, 150ms)
+- Circuit Breaker leve (após 3 falhas consecutivas)
+- Cache de taxas dos processadores (atualiza a cada 5s)
+- Cache de saúde dos processadores (TTL de 5s)
+- Testes unitários e de integração
