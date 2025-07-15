@@ -58,8 +58,8 @@ public class PaymentProcessorClient {
     private Optional<PaymentResult> tryWithRetry(ProcessorType type, PaymentRequest request) {
         String url = System.getenv(
                 (type == ProcessorType.DEFAULT)
-                        ? "PAYMENT_PROCESSOR_URL_DEFAULT"
-                        : "PAYMENT_PROCESSOR_URL_FALLBACK"
+                        ? "http://payment-processor-default:8080"
+                        : "http://payment-processor-fallback:8080"
         );
         //BigDecimal fee = configService.getFee(type);
 
