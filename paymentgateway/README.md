@@ -1,7 +1,6 @@
 ### Estrutura do Projeto - EAP
 
-<img width="1136" height="1425" alt="image" src="https://github.com/user-attachments/assets/ff36c3d7-4b34-41a8-bbec-55e6f9495f02" />
-
+<img width="1583" height="1432" alt="image" src="https://github.com/user-attachments/assets/92a07a5c-907a-4a28-8a7a-755a0749ab10" />
 
 ### Responsabilidades de Classe:
 
