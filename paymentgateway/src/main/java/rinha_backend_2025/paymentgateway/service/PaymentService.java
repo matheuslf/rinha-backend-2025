@@ -26,7 +26,6 @@ public class PaymentService {
 
     private final Queue<PaymentRequest> queue = new ConcurrentLinkedQueue<>();
     private final Map<ProcessorType, List<PaymentResult>> results = new ConcurrentHashMap<>();
-    private final Map<ProcessorType, PaymentStats> stats = new ConcurrentHashMap<>();
 
     /**
      * Faz a inicialização automatica dos processadores.
@@ -35,11 +34,6 @@ public class PaymentService {
     public void init() {
         results.put(ProcessorType.DEFAULT, Collections.synchronizedList(new ArrayList<>()));
         results.put(ProcessorType.FALLBACK, Collections.synchronizedList(new ArrayList<>()));
-
-        // adciona stats do payment
-        // evita qualquer problemas com `null` quando acessar `results.get(type)` ou `stats.get(type)`
-        stats.put(ProcessorType.DEFAULT, new PaymentStats());
-        stats.put(ProcessorType.FALLBACK, new PaymentStats());
     }
 
     /**
@@ -54,7 +48,7 @@ public class PaymentService {
     /**
      * PASSO 2 - Faz o flush da fila a cada 10ms.
      */
-    @Scheduled(fixedDelay = 10)
+    @Scheduled(fixedDelay = 10) // flush a cada 10ms
     public void flush() {
         List<PaymentRequest> batch = new ArrayList<>();
         while (!queue.isEmpty()) {
@@ -62,7 +56,6 @@ public class PaymentService {
             if (req != null) batch.add(req);
         }
 
-        // Percorre e envia para o melhor "processador".
         for (PaymentRequest req : batch) {
             try {
                 PaymentResult result = processorClient.sendToBestProcessor(req);
@@ -101,4 +94,5 @@ public class PaymentService {
 
         return summary;
     }
+
 }
