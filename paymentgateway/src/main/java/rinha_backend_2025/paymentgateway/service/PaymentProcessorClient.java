@@ -20,7 +20,7 @@ import java.util.Optional;
 public class PaymentProcessorClient {
 
     private final WebClient.Builder webClientBuilder;
-    private final ConfigService configService;
+//    private final ConfigService configService;
     private final HealthCheckService healthCheckService;
     private final ProcessorHealthTracker healthTracker;
 
@@ -29,6 +29,7 @@ public class PaymentProcessorClient {
     public PaymentResult sendToBestProcessor(PaymentRequest request) {
         ProcessorType preferred = decideProcessor();
         ProcessorType alternate = (preferred == ProcessorType.DEFAULT) ? ProcessorType.FALLBACK : ProcessorType.DEFAULT;
+
 
         if (healthTracker.isCircuitOpen(preferred)) {
             return tryWithRetry(alternate, request)
@@ -56,11 +57,9 @@ public class PaymentProcessorClient {
     }
 
     private Optional<PaymentResult> tryWithRetry(ProcessorType type, PaymentRequest request) {
-        String url = System.getenv(
-                (type == ProcessorType.DEFAULT)
-                        ? "http://payment-processor-default:8080"
-                        : "http://payment-processor-fallback:8080"
-        );
+        String url = (type == ProcessorType.DEFAULT)
+                ? System.getenv("PAYMENT_PROCESSOR_DEFAULT_URL")
+                : System.getenv("PAYMENT_PROCESSOR_FALLBACK_URL");
         //BigDecimal fee = configService.getFee(type);
 
         for (int attempt = 1; attempt <= 3; attempt++) {

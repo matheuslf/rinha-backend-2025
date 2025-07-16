@@ -18,9 +18,8 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    public ResponseEntity<Void> receive(@RequestBody PaymentRequest request) {
+    public void receive(@RequestBody PaymentRequest request) {
         paymentService.enqueue(request);
-        return ResponseEntity.accepted().build();
     }
 
     @GetMapping("/summary")

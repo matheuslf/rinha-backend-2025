@@ -1,8 +1,8 @@
 package rinha_backend_2025.paymentgateway.service;
 
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import rinha_backend_2025.paymentgateway.dto.PaymentRequest;
@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Slf4j
@@ -22,32 +21,15 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class PaymentService {
 
     private final PaymentProcessorClient processorClient;
+    private final RedisTemplate<String, Object> redisTemplate; 
 
     private final Queue<PaymentRequest> queue = new ConcurrentLinkedQueue<>();
-    private final Map<ProcessorType, List<PaymentResult>> results = new ConcurrentHashMap<>();
 
-    /**
-     * Faz a inicialização automatica dos processadores.
-     */
-    @PostConstruct
-    public void init() {
-        results.put(ProcessorType.DEFAULT, Collections.synchronizedList(new ArrayList<>()));
-        results.put(ProcessorType.FALLBACK, Collections.synchronizedList(new ArrayList<>()));
-    }
-
-    /**
-     * PASSO 1 - Adiciona toda requisição de pagamento na fila
-     * @param request
-     *          Requisições de pagamento advindas do controller.
-     */
     public void enqueue(PaymentRequest request) {
         queue.offer(request);
     }
 
-    /**
-     * PASSO 2 - Faz o flush da fila a cada 10ms.
-     */
-    @Scheduled(fixedDelay = 10) // flush a cada 10ms
+    @Scheduled(fixedDelay = 10)
     public void flush() {
         List<PaymentRequest> batch = new ArrayList<>();
         while (!queue.isEmpty()) {
@@ -58,8 +40,9 @@ public class PaymentService {
         for (PaymentRequest req : batch) {
             try {
                 PaymentResult result = processorClient.sendToBestProcessor(req);
-                if (result.isSuccess()) {
-                    results.get(result.getProcessorType()).add(result);
+                if (result.success()) {
+                    String key = "payments:" + result.processorType().name().toLowerCase();
+                    redisTemplate.opsForList().rightPush(key, result);
                 }
             } catch (Exception e) {
                 log.error("Erro ao processar pagamento: {}", e.getMessage());
@@ -71,9 +54,17 @@ public class PaymentService {
         Map<String, Map<String, Object>> summary = new HashMap<>();
 
         for (ProcessorType type : ProcessorType.values()) {
-            List<PaymentResult> filtered = results.get(type).stream()
+            String key = "payments:" + type.name().toLowerCase();
+            List<Object> resultsAsObjects = redisTemplate.opsForList().range(key, 0, -1);
+            if (resultsAsObjects == null) continue;
+
+            List<PaymentResult> results = resultsAsObjects.stream()
+                    .map(obj -> (PaymentResult) obj)
+                    .toList();
+
+            List<PaymentResult> filtered = results.stream()
                     .filter(r -> {
-                        Instant ts = r.getProcessedAt();
+                        Instant ts = r.processedAt();
                         return (from == null || ts.isAfter(from.toInstant()))
                                 && (to == null || ts.isBefore(to.toInstant()));
                     })
@@ -81,7 +72,7 @@ public class PaymentService {
 
             int totalRequests = filtered.size();
             BigDecimal totalAmount = filtered.stream()
-                    .map(PaymentResult::getAmount)
+                    .map(PaymentResult::amount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             Map<String, Object> data = new HashMap<>();
@@ -90,8 +81,6 @@ public class PaymentService {
 
             summary.put(type.name().toLowerCase(), data);
         }
-
         return summary;
     }
-
 }

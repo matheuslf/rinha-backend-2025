@@ -26,8 +26,8 @@ public class HealthCheckService {
     public HealthCheckService(WebClient.Builder builder) {
         this.webClientBuilder = builder;
 
-        processorUrls.put(ProcessorType.DEFAULT, "http://payment-processor-default:8080");
-        processorUrls.put(ProcessorType.FALLBACK, "http://payment-processor-fallback:8080");
+        processorUrls.put(ProcessorType.DEFAULT, System.getenv("PAYMENT_PROCESSOR_DEFAULT_URL"));
+        processorUrls.put(ProcessorType.FALLBACK, System.getenv("PAYMENT_PROCESSOR_FALLBACK_URL"));
     }
 
     public Optional<ProcessorHealth> getHealth(ProcessorType type) {
