@@ -71,7 +71,12 @@ public class PaymentService {
         Map<String, Map<String, Object>> summary = new HashMap<>();
 
         for (ProcessorType type : ProcessorType.values()) {
-            List<PaymentResult> filtered = results.get(type).stream()
+            List<PaymentResult> snapshot;
+            synchronized (results.get(type)) {
+                snapshot = new ArrayList<>(results.get(type));
+            }
+
+            List<PaymentResult> filtered = snapshot.stream()
                     .filter(r -> {
                         Instant ts = r.getProcessedAt();
                         return (from == null || ts.isAfter(from.toInstant()))
