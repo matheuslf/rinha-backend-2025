@@ -2,7 +2,10 @@ package rinha_backend_2025.paymentgateway.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import rinha_backend_2025.paymentgateway.dto.PaymentRequest;
 import rinha_backend_2025.paymentgateway.model.PaymentResult;
@@ -30,22 +33,10 @@ public class PaymentProcessorClient {
         ProcessorType preferred = decideProcessor();
         ProcessorType alternate = (preferred == ProcessorType.DEFAULT) ? ProcessorType.FALLBACK : ProcessorType.DEFAULT;
 
-        if (healthTracker.isCircuitOpen(preferred)) {
-            return tryWithRetry(alternate, request)
-                    .orElse(failResult(request));
-        }
-
         return tryWithRetry(preferred, request)
-                .orElseGet(() -> {
-                    if (!healthTracker.isCircuitOpen(alternate)) {
-                        return tryWithRetry(alternate, request)
-                                .orElse(failResult(request));
-                    } else {
-                        return failResult(request);
-                    }
-                });
+                .or(() -> tryWithRetry(alternate, request))
+                .orElse(failResult(request));
     }
-
 
     private ProcessorType decideProcessor() {
         Optional<ProcessorHealth> healthOpt = healthCheckService.getHealth(ProcessorType.DEFAULT);
@@ -58,9 +49,15 @@ public class PaymentProcessorClient {
     private Optional<PaymentResult> tryWithRetry(ProcessorType type, PaymentRequest request) {
         String url = System.getenv(
                 (type == ProcessorType.DEFAULT)
-                        ? "http://payment-processor-default:8080"
-                        : "http://payment-processor-fallback:8080"
+                        ? "PAYMENT_PROCESSOR_URL_DEFAULT"
+                        : "PAYMENT_PROCESSOR_URL_FALLBACK"
         );
+
+        url = type == ProcessorType.DEFAULT
+                        ?   "http://localhost:8001"
+                        :   "http://localhost:8002";
+
+
         //BigDecimal fee = configService.getFee(type);
 
         for (int attempt = 1; attempt <= 3; attempt++) {
@@ -69,7 +66,8 @@ public class PaymentProcessorClient {
 
                 client.post()
                         .uri("/payments")
-                        .bodyValue(request.toProcessorPayload(Instant.now()))
+                        .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .body(BodyInserters.fromValue(request.toProcessorPayload(Instant.now())))
                         .retrieve()
                         .toBodilessEntity()
                         .timeout(TIMEOUT)

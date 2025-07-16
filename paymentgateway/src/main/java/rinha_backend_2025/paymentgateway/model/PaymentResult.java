@@ -2,20 +2,21 @@ package rinha_backend_2025.paymentgateway.model;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 public class PaymentResult {
 
-    private final String correlationId;
+    private final UUID correlationId;
     private final BigDecimal amount;
     private final ProcessorType processorType;
     //private final BigDecimal fee;
     private final boolean success;
     private final Instant processedAt;
 
-    public PaymentResult(String correlationId,
+    public PaymentResult(UUID correlationId,
                          BigDecimal amount,
                          ProcessorType processorType,
-    //                     BigDecimal fee,
+                         //                     BigDecimal fee,
                          boolean success) {
         this.correlationId = correlationId;
         this.amount = amount;
@@ -25,7 +26,7 @@ public class PaymentResult {
         this.processedAt = Instant.now();
     }
 
-    public String getCorrelationId() {
+    public UUID getCorrelationId() {
         return correlationId;
     }
 
