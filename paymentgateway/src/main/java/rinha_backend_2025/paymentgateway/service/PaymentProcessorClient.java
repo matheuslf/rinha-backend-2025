@@ -7,12 +7,12 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import rinha_backend_2025.paymentgateway.config.ProcessorProperties;
 import rinha_backend_2025.paymentgateway.dto.PaymentRequest;
 import rinha_backend_2025.paymentgateway.model.PaymentResult;
 import rinha_backend_2025.paymentgateway.model.ProcessorHealth;
 import rinha_backend_2025.paymentgateway.model.ProcessorType;
 
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -26,6 +26,7 @@ public class PaymentProcessorClient {
     private final ConfigService configService;
     private final HealthCheckService healthCheckService;
     private final ProcessorHealthTracker healthTracker;
+    private final ProcessorProperties props;
 
     private static final Duration TIMEOUT = Duration.ofMillis(500);
 
@@ -47,18 +48,7 @@ public class PaymentProcessorClient {
     }
 
     private Optional<PaymentResult> tryWithRetry(ProcessorType type, PaymentRequest request) {
-        String url = System.getenv(
-                (type == ProcessorType.DEFAULT)
-                        ? "PAYMENT_PROCESSOR_URL_DEFAULT"
-                        : "PAYMENT_PROCESSOR_URL_FALLBACK"
-        );
-
-        //url = type == ProcessorType.DEFAULT
-        //                ?   "http://localhost:8001"
-        //                :   "http://localhost:8002";
-
-
-        //BigDecimal fee = configService.getFee(type);
+        String url = (type == ProcessorType.DEFAULT) ? props.getUrlDefault() : props.getUrlFallback();
 
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
