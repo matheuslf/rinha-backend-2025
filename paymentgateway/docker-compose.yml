@@ -21,9 +21,7 @@ services:
       - api2
 
   api1: &api
-    build:
-      context: .  # aponta para o diretório com seu Dockerfile e projeto
-    image: payment-gateway-custom
+    image: lucasilverio/rinha-backend-2025:v1
     container_name: api1
     hostname: api1
     environment:
