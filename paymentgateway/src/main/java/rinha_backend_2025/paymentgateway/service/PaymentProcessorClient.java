@@ -23,7 +23,6 @@ import java.util.Optional;
 public class PaymentProcessorClient {
 
     private final WebClient.Builder webClientBuilder;
-    private final ConfigService configService;
     private final HealthCheckService healthCheckService;
     private final ProcessorHealthTracker healthTracker;
     private final ProcessorProperties props;
@@ -49,7 +48,6 @@ public class PaymentProcessorClient {
 
     private Optional<PaymentResult> tryWithRetry(ProcessorType type, PaymentRequest request) {
         String url = (type == ProcessorType.DEFAULT) ? props.getUrlDefault() : props.getUrlFallback();
-
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
                 WebClient client = webClientBuilder.baseUrl(url).build();
