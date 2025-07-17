@@ -53,9 +53,9 @@ public class PaymentProcessorClient {
                         : "PAYMENT_PROCESSOR_URL_FALLBACK"
         );
 
-        url = type == ProcessorType.DEFAULT
-                        ?   "http://localhost:8001"
-                        :   "http://localhost:8002";
+        //url = type == ProcessorType.DEFAULT
+        //                ?   "http://localhost:8001"
+        //                :   "http://localhost:8002";
 
 
         //BigDecimal fee = configService.getFee(type);

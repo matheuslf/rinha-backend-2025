@@ -21,13 +21,16 @@ services:
       - api2
 
   api1: &api
-    image: lucasilverio/rinha-backend-2025:v1
+    build:
+      context: .  # aponta para o diretório com seu Dockerfile e projeto
+    image: payment-gateway-custom
+    container_name: api1
     hostname: api1
     environment:
       - SERVER_PORT=8080
       - SPRING_REDIS_HOST=redis
-      - PAYMENT_PROCESSOR_DEFAULT_URL=http://payment-processor-default:8080
-      - PAYMENT_PROCESSOR_FALLBACK_URL=http://payment-processor-fallback:8080
+      - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
+      - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
       - INSTANCE_ID=API-1
       - SPRING_PROFILES_ACTIVE=production
     networks:
@@ -44,6 +47,7 @@ services:
 
   api2:
     <<: *api
+    container_name: api2
     hostname: api2
     environment:
       - INSTANCE_ID=API-2
