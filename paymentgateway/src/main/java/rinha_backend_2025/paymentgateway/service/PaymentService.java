@@ -10,6 +10,7 @@ import rinha_backend_2025.paymentgateway.model.PaymentResult;
 import rinha_backend_2025.paymentgateway.model.ProcessorType;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.*;
@@ -22,6 +23,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class PaymentService {
 
     private final PaymentProcessorClient processorClient;
+    private final IdempotencyService idempotencyService;
 
     private final Queue<PaymentRequest> queue = new ConcurrentLinkedQueue<>();
     private final Map<ProcessorType, List<PaymentResult>> results = new ConcurrentHashMap<>();
@@ -41,18 +43,28 @@ public class PaymentService {
      *          Requisições de pagamento advindas do controller.
      */
     public void enqueue(PaymentRequest request) {
-        queue.offer(request);
+        if (idempotencyService.markIfNew(request.correlationId())) {
+            queue.offer(request);
+        } else {
+            log.warn("Duplicate detected at enqueue: {}", request.correlationId());
+        }
     }
 
     /**
      * PASSO 2 - Faz o flush da fila a cada 10ms.
      */
-    @Scheduled(fixedDelay = 10) // flush a cada 10ms
+    @Scheduled(fixedDelay = 10)
     public void flush() {
         List<PaymentRequest> batch = new ArrayList<>();
         while (!queue.isEmpty()) {
             PaymentRequest req = queue.poll();
-            if (req != null) batch.add(req);
+            if (req != null) {
+                batch.add(req);
+            }
+        }
+
+        if (!batch.isEmpty()) {
+            log.info("Processando batch de {} pagamentos", batch.size());
         }
 
         for (PaymentRequest req : batch) {
@@ -67,6 +79,7 @@ public class PaymentService {
         }
     }
 
+
     public Map<String, Map<String, Object>> getSummary(ZonedDateTime from, ZonedDateTime to) {
         Map<String, Map<String, Object>> summary = new HashMap<>();
 
@@ -79,8 +92,8 @@ public class PaymentService {
             List<PaymentResult> filtered = snapshot.stream()
                     .filter(r -> {
                         Instant ts = r.getProcessedAt();
-                        return (from == null || ts.isAfter(from.toInstant()))
-                                && (to == null || ts.isBefore(to.toInstant()));
+                        return (from == null || !ts.isBefore(from.toInstant()))
+                                && (to == null || !ts.isAfter(to.toInstant()));
                     })
                     .toList();
 
@@ -91,12 +104,13 @@ public class PaymentService {
 
             Map<String, Object> data = new HashMap<>();
             data.put("totalRequests", totalRequests);
-            data.put("totalAmount", totalAmount);
+            data.put("totalAmount", totalAmount.setScale(2, RoundingMode.HALF_UP));
 
             summary.put(type.name().toLowerCase(), data);
         }
 
         return summary;
     }
+
 
 }

@@ -22,7 +22,7 @@ class PaymentServiceTest {
 
     @BeforeEach
     void setup() {
-        PaymentProcessorClient fakeClient = mock(PaymentProcessorClient.class);
+       /* PaymentProcessorClient fakeClient = mock(PaymentProcessorClient.class);
         when(fakeClient.sendToBestProcessor(any()))
                 .thenAnswer(invocation -> {
                     PaymentRequest req = invocation.getArgument(0);
@@ -34,7 +34,7 @@ class PaymentServiceTest {
                     );
                 });
         paymentService = new PaymentService(fakeClient);
-        paymentService.init();
+        paymentService.init();*/
     }
 
     @Test

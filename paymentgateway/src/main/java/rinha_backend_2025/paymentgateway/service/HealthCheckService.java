@@ -3,6 +3,7 @@ package rinha_backend_2025.paymentgateway.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 import rinha_backend_2025.paymentgateway.model.ProcessorHealth;
 import rinha_backend_2025.paymentgateway.model.ProcessorType;
 
@@ -32,30 +33,53 @@ public class HealthCheckService {
     public Optional<ProcessorHealth> getHealth(ProcessorType type) {
         Instant now = Instant.now();
         CachedHealth cached = cache.get(type);
-
         if (cached != null && now.isBefore(cached.expiresAt())) {
             return Optional.of(cached.health());
         }
 
-        try {
-            String baseUrl = processorUrls.get(type);
-            if (baseUrl == null) return Optional.empty();
+        synchronized (type) {
+            cached = cache.get(type);
+            if (cached != null && now.isBefore(cached.expiresAt())) {
+                return Optional.of(cached.health());
+            }
 
-            WebClient client = webClientBuilder.baseUrl(baseUrl).build();
+            try {
+                String baseUrl = processorUrls.get(type);
+                if (baseUrl == null) return Optional.empty();
 
-            ProcessorHealth health = client.get()
-                    .uri("/payments/service-health")
-                    .retrieve()
-                    .bodyToMono(ProcessorHealth.class)
-                    .timeout(TIMEOUT)
-                    .block();
+                WebClient client = webClientBuilder.baseUrl(baseUrl).build();
 
-            cache.put(type, new CachedHealth(health, now.plus(TTL)));
-            return Optional.ofNullable(health);
+                log.warn("Consultando saude do servidor {}", type);
 
-        } catch (Exception e) {
-            log.warn("Erro ao consultar health de {}: {}", type, e.getMessage());
-            return Optional.empty();
+                ProcessorHealth health = client.get()
+                        .uri("/payments/service-health")
+                        .exchangeToMono(response -> {
+                            if (response.statusCode().is2xxSuccessful()) {
+                                log.warn("Servidor OK: {} Status Code: {}", type, response.statusCode());
+                                return response.bodyToMono(ProcessorHealth.class);
+                            } else {
+                                return response.bodyToMono(String.class)
+                                        .doOnNext(body -> log.debug("Corpo do erro: {}", body))
+                                        .then(Mono.empty());
+                            }
+                        })
+                        .timeout(TIMEOUT)
+                        .onErrorResume(e -> {
+                            log.warn("Erro ao consultar saude do servidor {}: {}", type, e.getMessage());
+                            return Mono.empty();
+                        })
+                        .block();
+
+                if (health != null) {
+                    cache.put(type, new CachedHealth(health, now.plus(TTL)));
+                    return Optional.of(health);
+                } else {
+                    return Optional.empty();
+                }
+
+            } catch (Exception e) {
+                return Optional.empty();
+            }
         }
     }
 

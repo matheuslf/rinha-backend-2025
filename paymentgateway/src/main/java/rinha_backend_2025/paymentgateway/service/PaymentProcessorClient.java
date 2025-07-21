@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 import rinha_backend_2025.paymentgateway.dto.PaymentRequest;
 import rinha_backend_2025.paymentgateway.model.PaymentResult;
 import rinha_backend_2025.paymentgateway.model.ProcessorHealth;
@@ -50,30 +51,48 @@ public class PaymentProcessorClient {
                         ? "PAYMENT_PROCESSOR_URL_DEFAULT"
                         : "PAYMENT_PROCESSOR_URL_FALLBACK"
         );
-        log.info("URL UTILIZADA : {}", url);
+        Instant requestedAt = Instant.now();
 
+        log.warn("Enviando pagamento para o servidor {}", type);
         for (int attempt = 1; attempt <= 3; attempt++) {
+
+            log.warn("Tantativa {}", attempt);
+
             try {
                 WebClient client = webClientBuilder.baseUrl(url).build();
-
-                client.post()
+                int finalAttempt = attempt;
+                Boolean success = client.post()
                         .uri("/payments")
                         .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                        .body(BodyInserters.fromValue(request.toProcessorPayload(Instant.now())))
-                        .retrieve()
-                        .toBodilessEntity()
+                        .body(BodyInserters.fromValue(request.toProcessorPayload(requestedAt)))
+                        .exchangeToMono(response -> {
+                            if (response.statusCode().is2xxSuccessful()) {
+                                log.warn("Sucesso ao enviar pagamento {}", type);
+                                return Mono.just(true);
+                            } else {
+                                log.warn("Tentativa {} falhou com status {} no processor {}", finalAttempt, response.statusCode(), type);
+                                return Mono.just(false);
+                            }
+                        })
                         .timeout(TIMEOUT)
+                        .onErrorResume(e -> {
+                            log.warn("Erro ao enviar pagamento para {}: {}", type, e.getMessage());
+                            return Mono.just(false);
+                        })
                         .block();
 
-                healthTracker.reportSuccess(type);
+                if (Boolean.TRUE.equals(success)) {
+                    healthTracker.reportSuccess(type);
+                    return Optional.of(new PaymentResult(
+                            request.correlationId(),
+                            request.amount(),
+                            type,
+                            true
+                    ));
+                } else {
+                    healthTracker.reportFailure(type);
+                }
 
-                return Optional.of(new PaymentResult(
-                        request.correlationId(),
-                        request.amount(),
-                        type,
-                //        null,
-                        true
-                ));
             } catch (Exception e) {
                 log.warn("Tentativa {} falhou com {}: {}", attempt, type, e.getMessage());
                 healthTracker.reportFailure(type);
@@ -88,12 +107,12 @@ public class PaymentProcessorClient {
         return Optional.empty();
     }
 
+
     private PaymentResult failResult(PaymentRequest request) {
         return new PaymentResult(
                 request.correlationId(),
                 request.amount(),
                 null,
-        //        BigDecimal.ZERO,
                 false
         );
     }

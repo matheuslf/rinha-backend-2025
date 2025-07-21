@@ -28,6 +28,8 @@ x-backend-templates:
     networks:
       - backend
       - payment-processor
+    depends_on:
+       - redis
     deploy:
       resources:
         limits:
@@ -63,6 +65,22 @@ services:
     <<: *backend-template
     container_name: backend-2
     hostname: backend-2
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: "25MB"
 
 networks:
   backend:
