@@ -21,7 +21,7 @@ public class PaymentResult {
         this.correlationId = correlationId;
         this.amount = amount;
         this.processorType = processorType;
-    //    this.fee = fee;
+        //    this.fee = fee;
         this.success = success;
         this.processedAt = Instant.now();
     }
