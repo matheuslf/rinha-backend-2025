@@ -17,70 +17,82 @@ import java.util.Optional;
 @Service
 public class HealthCheckService {
 
-    private static final Duration TTL = Duration.ofSeconds(5); // cache por 5s
-    private static final Duration TIMEOUT = Duration.ofMillis(300); // tempo máx por chamada
+    private static final Duration TTL = Duration.ofSeconds(5);
+    private static final Duration TIMEOUT = Duration.ofMillis(250);
 
     private final WebClient.Builder webClientBuilder;
+    private final ProcessorHealthTracker healthTracker;
+
     private final Map<ProcessorType, CachedHealth> cache = new EnumMap<>(ProcessorType.class);
     private final Map<ProcessorType, String> processorUrls = new EnumMap<>(ProcessorType.class);
 
-    public HealthCheckService(WebClient.Builder builder) {
+    public HealthCheckService(WebClient.Builder builder, ProcessorHealthTracker tracker) {
         this.webClientBuilder = builder;
-        processorUrls.put(ProcessorType.DEFAULT, System.getenv("PAYMENT_PROCESSOR_URL_DEFAULT"));
-        processorUrls.put(ProcessorType.FALLBACK, System.getenv("PAYMENT_PROCESSOR_URL_FALLBACK"));
+        this.healthTracker = tracker;
     }
 
     public Optional<ProcessorHealth> getHealth(ProcessorType type) {
-        Instant now = Instant.now();
-        CachedHealth cached = cache.get(type);
-        if (cached != null && now.isBefore(cached.expiresAt())) {
-            return Optional.of(cached.health());
+        if (healthTracker.isFailing(type)) {
+            log.warn("Processador {} já marcado como falho → ignorando consulta", type);
+            return Optional.empty();
         }
 
-        synchronized (type) {
-            cached = cache.get(type);
-            if (cached != null && now.isBefore(cached.expiresAt())) {
-                return Optional.of(cached.health());
+        Instant now = Instant.now();
+
+        CachedHealth result = cache.compute(type, (t, old) -> {
+            if (old != null && now.isBefore(old.expiresAt())) {
+                log.debug("Cache HIT para {}", t);
+                return old;
             }
 
+            log.debug("Cache MISS para {}. Consultando /service-health", t);
+
+            String url = resolveBaseUrl(t);
+            WebClient client = webClientBuilder.baseUrl(url).build();
+
             try {
-                String baseUrl = processorUrls.get(type);
-                if (baseUrl == null) return Optional.empty();
-
-                WebClient client = webClientBuilder.baseUrl(baseUrl).build();
-
-                log.warn("Consultando saude do servidor {}", type);
-
                 ProcessorHealth health = client.get()
                         .uri("/payments/service-health")
-                        .exchangeToMono(response -> {
-                            if (response.statusCode().is2xxSuccessful()) {
-                                log.warn("Servidor OK: {} Status Code: {}", type, response.statusCode());
-                                return response.bodyToMono(ProcessorHealth.class);
-                            } else {
-                                return response.bodyToMono(String.class)
-                                        .doOnNext(body -> log.debug("Corpo do erro: {}", body))
-                                        .then(Mono.empty());
-                            }
-                        })
+                        .retrieve()
+                        .bodyToMono(ProcessorHealth.class)
                         .timeout(TIMEOUT)
                         .onErrorResume(e -> {
-                            log.warn("Erro ao consultar saude do servidor {}: {}", type, e.getMessage());
+                            log.warn("Erro no health check de {}: {}", t, e.toString());
                             return Mono.empty();
                         })
-                        .block();
+                        .blockOptional()
+                        .orElse(null);
 
                 if (health != null) {
-                    cache.put(type, new CachedHealth(health, now.plus(TTL)));
-                    return Optional.of(health);
-                } else {
-                    return Optional.empty();
+                    return new CachedHealth(health, now.plus(TTL));
                 }
 
             } catch (Exception e) {
-                return Optional.empty();
+                log.warn("Exceção no health check de {}: {}", t, e.getMessage());
             }
-        }
+
+            return null; // não conseguiu obter health
+        });
+
+        return result != null ? Optional.of(result.health()) : Optional.empty();
+    }
+
+
+    private String resolveBaseUrl(ProcessorType type) {
+        return processorUrls.computeIfAbsent(type, t -> {
+            String env = switch (t) {
+                case DEFAULT -> System.getenv("PAYMENT_PROCESSOR_URL_DEFAULT");
+                case FALLBACK -> System.getenv("PAYMENT_PROCESSOR_URL_FALLBACK");
+            };
+            if (env == null || env.isBlank()) {
+                log.error("Variável de ambiente não definida para {}", t);
+                env = switch (t) {
+                    case DEFAULT -> "http://payment-processor-default:8080";
+                    case FALLBACK -> "http://payment-processor-fallback:8080";
+                };
+            }
+            return env;
+        });
     }
 
     private record CachedHealth(ProcessorHealth health, Instant expiresAt) {}

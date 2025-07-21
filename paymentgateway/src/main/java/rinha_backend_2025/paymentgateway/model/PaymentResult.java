@@ -1,52 +1,33 @@
 package rinha_backend_2025.paymentgateway.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+@Getter
+@Setter
+@ToString
+@AllArgsConstructor
 public class PaymentResult {
+    private UUID correlationId;
+    private BigDecimal amount;
+    private ProcessorType processorUsed;
+    private boolean success;
+    private boolean shouldRequeue;
+    private Instant processedAt;
 
-    private final UUID correlationId;
-    private final BigDecimal amount;
-    private final ProcessorType processorType;
-    //private final BigDecimal fee;
-    private final boolean success;
-    private final Instant processedAt;
-
-    public PaymentResult(UUID correlationId,
-                         BigDecimal amount,
-                         ProcessorType processorType,
-                         //                     BigDecimal fee,
-                         boolean success) {
-        this.correlationId = correlationId;
-        this.amount = amount;
-        this.processorType = processorType;
-        //    this.fee = fee;
-        this.success = success;
-        this.processedAt = Instant.now();
+    // Construtor para sucesso/erro sem reenqueue e sem processedAt (será setado depois)
+    public PaymentResult(UUID correlationId, BigDecimal amount, ProcessorType processorUsed, boolean success) {
+        this(correlationId, amount, processorUsed, success, false, null);
     }
 
-    public UUID getCorrelationId() {
-        return correlationId;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public ProcessorType getProcessorType() {
-        return processorType;
-    }
-
-    //public BigDecimal getFee() {
-    //    return fee;
-    //}
-
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public Instant getProcessedAt() {
-        return processedAt;
+    // Construtor para erro com flag de reenqueue
+    public PaymentResult(UUID correlationId, BigDecimal amount, ProcessorType processorUsed, boolean success, boolean shouldRequeue) {
+        this(correlationId, amount, processorUsed, success, shouldRequeue, null);
     }
 }

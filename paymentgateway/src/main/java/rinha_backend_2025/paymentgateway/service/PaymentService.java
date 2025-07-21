@@ -16,6 +16,7 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
 
 @Slf4j
 @Service
@@ -25,60 +26,65 @@ public class PaymentService {
     private final PaymentProcessorClient processorClient;
     private final IdempotencyService idempotencyService;
 
-    private final Queue<PaymentRequest> queue = new ConcurrentLinkedQueue<>();
-    private final Map<ProcessorType, List<PaymentResult>> results = new ConcurrentHashMap<>();
+    private final Queue<PaymentRequest> mainQueue = new ConcurrentLinkedQueue<>();
+    private final Queue<PaymentRequest> priorityQueue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentMap<ProcessorType, Queue<PaymentResult>> results = new ConcurrentHashMap<>();
 
-    /**
-     * Faz a inicialização automatica dos processadores.
-     */
     @PostConstruct
     public void init() {
-        results.put(ProcessorType.DEFAULT, Collections.synchronizedList(new ArrayList<>()));
-        results.put(ProcessorType.FALLBACK, Collections.synchronizedList(new ArrayList<>()));
+        for (ProcessorType type : ProcessorType.values()) {
+            results.put(type, new ConcurrentLinkedQueue<>());
+        }
     }
 
-    /**
-     * PASSO 1 - Adiciona toda requisição de pagamento na fila
-     * @param request
-     *          Requisições de pagamento advindas do controller.
-     */
     public void enqueue(PaymentRequest request) {
         if (idempotencyService.markIfNew(request.correlationId())) {
-            queue.offer(request);
+            mainQueue.offer(request);
         } else {
             log.warn("Duplicate detected at enqueue: {}", request.correlationId());
         }
     }
 
-    /**
-     * PASSO 2 - Faz o flush da fila a cada 10ms.
-     */
     @Scheduled(fixedDelay = 10)
     public void flush() {
         List<PaymentRequest> batch = new ArrayList<>();
-        while (!queue.isEmpty()) {
-            PaymentRequest req = queue.poll();
+
+        while (!priorityQueue.isEmpty()) {
+            PaymentRequest req = priorityQueue.poll();
             if (req != null) {
                 batch.add(req);
             }
         }
 
-        if (!batch.isEmpty()) {
-            log.info("Processando batch de {} pagamentos", batch.size());
+        while (!mainQueue.isEmpty()) {
+            PaymentRequest req = mainQueue.poll();
+            if (req != null) {
+                batch.add(req);
+            }
         }
 
         for (PaymentRequest req : batch) {
             try {
                 PaymentResult result = processorClient.sendToBestProcessor(req);
                 if (result.isSuccess()) {
-                    results.get(result.getProcessorType()).add(result);
+                    ProcessorType processor = result.getProcessorUsed();
+                    if (processor != null) {
+                        results.get(processor).add(result);
+                    }
+                } else if (result.isShouldRequeue()) {
+                    log.warn("Reenqueue solicitado para pagamento {}", result.getCorrelationId());
+                    priorityQueue.offer(req); // com prioridade
+
+                } else {
+                    log.error("Falha definitiva para pagamento: {}", result.getCorrelationId());
                 }
+
             } catch (Exception e) {
-                log.error("Erro ao processar pagamento: {}", e.getMessage());
+                log.error("Erro inesperado ao processar {}: {}", req.correlationId(), e.getMessage(), e);
+                priorityQueue.offer(req); // erro = tentativa de novo
             }
         }
     }
-
 
     public Map<String, Map<String, Object>> getSummary(ZonedDateTime from, ZonedDateTime to) {
         Map<String, Map<String, Object>> summary = new HashMap<>();
@@ -92,8 +98,9 @@ public class PaymentService {
             List<PaymentResult> filtered = snapshot.stream()
                     .filter(r -> {
                         Instant ts = r.getProcessedAt();
-                        return (from == null || !ts.isBefore(from.toInstant()))
-                                && (to == null || !ts.isAfter(to.toInstant()));
+                        return (ts != null) &&
+                                (from == null || !ts.isBefore(from.toInstant())) &&
+                                (to == null || !ts.isAfter(to.toInstant()));
                     })
                     .toList();
 
@@ -111,6 +118,4 @@ public class PaymentService {
 
         return summary;
     }
-
-
 }
