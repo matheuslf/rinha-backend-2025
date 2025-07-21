@@ -10,8 +10,8 @@ FROM eclipse-temurin:21-jdk
 
 WORKDIR /app
 
-COPY --from=builder /app/target/payment-gateway-*.jar app.jar
+COPY --from=builder /app/target/paymentgateway-*.jar app.jar
 
-EXPOSE 9999
+EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -1,71 +1,68 @@
-version: "3.8"
+version: '3.8'
+
+x-backend-templates:
+  app: &backend-template
+    image: matheuslferreira/paymentgateway:latest
+    environment:
+      RETRY_API_DEFAULT: 16
+      HTTP_CLIENT_WORKER: 25
+      TIMEOUT_DEFAULT: 180
+      TIMEOUT_FALLBACK: 95
+      QUEUE_BUFFER: 9000
+      THREADS_VIRTUAL_ENABLED: true
+      PAYMENT_PROCESSOR_URL_DEFAULT: http://payment-processor-default:8080
+      PAYMENT_PROCESSOR_URL_FALLBACK: http://payment-processor-fallback:8080
+      LOG_LEVEL: off
+      SERVER_PORT: 8080
+      BACK_END_URL: http://backend-2:8080
+      JAVA_OPTS: >-
+        -server
+        -XX:+UseG1GC
+        -XX:+UseFastAccessorMethods
+        -Xlog:disable
+        -XX:-PrintGC
+        -XX:+UseStringCache
+        -XX:-PrintGCDetails
+        -XX:-FlightRecorder
+        -XX:+DisableExplicitGC
+    networks:
+      - backend
+      - payment-processor
+    deploy:
+      resources:
+        limits:
+          cpus: '0.62'
+          memory: '140MB'
 
 services:
-  nginx:
-    image: nginx:latest
-    container_name: rinha-nginx
+  load-balancer:
+    image: nginx:alpine
+    restart: always
+    container_name: nginx-rinha
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend-1
+      - backend-2
     ports:
-      - "9999:9999"
-    networks:
-      - backend
-      - payment-processor
-    deploy:
-      resources:
-        limits:
-          cpus: "0.15"
-          memory: "15MB"
-    depends_on:
-      - api1
-      - api2
-
-  api1: &api
-    image: lucasilverio/rinha-backend-2025:v1
-    container_name: api1
-    hostname: api1
-    environment:
-      - SERVER_PORT=8080
-      - SPRING_REDIS_HOST=redis
-      - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
-      - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
-      - INSTANCE_ID=API-1
-      - SPRING_PROFILES_ACTIVE=production
-    networks:
-      - backend
-      - payment-processor
-    depends_on:
-      redis:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: "0.6"
-          memory: "300MB"
-
-  api2:
-    <<: *api
-    container_name: api2
-    hostname: api2
-    environment:
-      - INSTANCE_ID=API-2
-
-  redis:
-    image: redis:7.2-alpine
-    container_name: rinha-redis
-    command: redis-server --save "" --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - "9999:80"
     networks:
       - backend
     deploy:
       resources:
         limits:
-          cpus: "0.25"
-          memory: "256MB"
+          cpus: "0.26"
+          memory: "70MB"
+
+  backend-1:
+    <<: *backend-template
+    container_name: backend-1
+    hostname: backend-1
+
+  backend-2:
+    <<: *backend-template
+    container_name: backend-2
+    hostname: backend-2
 
 networks:
   backend:

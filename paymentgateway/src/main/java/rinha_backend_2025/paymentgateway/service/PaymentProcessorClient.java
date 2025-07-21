@@ -7,7 +7,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
-import rinha_backend_2025.paymentgateway.config.ProcessorProperties;
 import rinha_backend_2025.paymentgateway.dto.PaymentRequest;
 import rinha_backend_2025.paymentgateway.model.PaymentResult;
 import rinha_backend_2025.paymentgateway.model.ProcessorHealth;
@@ -23,10 +22,8 @@ import java.util.Optional;
 public class PaymentProcessorClient {
 
     private final WebClient.Builder webClientBuilder;
-    private final ConfigService configService;
     private final HealthCheckService healthCheckService;
     private final ProcessorHealthTracker healthTracker;
-    private final ProcessorProperties props;
 
     private static final Duration TIMEOUT = Duration.ofMillis(500);
 
@@ -48,7 +45,12 @@ public class PaymentProcessorClient {
     }
 
     private Optional<PaymentResult> tryWithRetry(ProcessorType type, PaymentRequest request) {
-        String url = (type == ProcessorType.DEFAULT) ? props.getUrlDefault() : props.getUrlFallback();
+        String url = System.getenv(
+                (type == ProcessorType.DEFAULT)
+                        ? "PAYMENT_PROCESSOR_URL_DEFAULT"
+                        : "PAYMENT_PROCESSOR_URL_FALLBACK"
+        );
+        log.info("URL UTILIZADA : {}", url);
 
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {

@@ -3,7 +3,6 @@ package rinha_backend_2025.paymentgateway.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import rinha_backend_2025.paymentgateway.config.ProcessorProperties;
 import rinha_backend_2025.paymentgateway.model.ProcessorHealth;
 import rinha_backend_2025.paymentgateway.model.ProcessorType;
 
@@ -22,12 +21,12 @@ public class HealthCheckService {
 
     private final WebClient.Builder webClientBuilder;
     private final Map<ProcessorType, CachedHealth> cache = new EnumMap<>(ProcessorType.class);
+    private final Map<ProcessorType, String> processorUrls = new EnumMap<>(ProcessorType.class);
 
-    private final ProcessorProperties props;
-
-    public HealthCheckService(WebClient.Builder builder, ProcessorProperties props) {
+    public HealthCheckService(WebClient.Builder builder) {
         this.webClientBuilder = builder;
-        this.props = props;
+        processorUrls.put(ProcessorType.DEFAULT, System.getenv("PAYMENT_PROCESSOR_URL_DEFAULT"));
+        processorUrls.put(ProcessorType.FALLBACK, System.getenv("PAYMENT_PROCESSOR_URL_FALLBACK"));
     }
 
     public Optional<ProcessorHealth> getHealth(ProcessorType type) {
@@ -39,10 +38,7 @@ public class HealthCheckService {
         }
 
         try {
-            String baseUrl = switch (type) {
-                case DEFAULT -> props.getUrlDefault();
-                case FALLBACK -> props.getUrlFallback();
-            };
+            String baseUrl = processorUrls.get(type);
             if (baseUrl == null) return Optional.empty();
 
             WebClient client = webClientBuilder.baseUrl(baseUrl).build();

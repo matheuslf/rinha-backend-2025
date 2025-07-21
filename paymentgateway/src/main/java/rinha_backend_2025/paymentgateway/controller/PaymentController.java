@@ -22,14 +22,4 @@ public class PaymentController {
         paymentService.enqueue(request);
         return ResponseEntity.accepted().build();
     }
-
-    @GetMapping("/summary")
-    public ResponseEntity<Map<String, Map<String, Object>>> getSummary(
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime from,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) ZonedDateTime to
-    ) {
-        return ResponseEntity.ok(paymentService.getSummary(from, to));
-    }
 }
