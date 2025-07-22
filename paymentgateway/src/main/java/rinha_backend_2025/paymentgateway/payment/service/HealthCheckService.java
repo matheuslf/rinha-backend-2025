@@ -1,11 +1,12 @@
-package rinha_backend_2025.paymentgateway.service;
+package rinha_backend_2025.paymentgateway.payment.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import rinha_backend_2025.paymentgateway.model.ProcessorHealth;
-import rinha_backend_2025.paymentgateway.model.ProcessorType;
+import rinha_backend_2025.paymentgateway.payment.dto.response.ProcessorHealth;
+import rinha_backend_2025.paymentgateway.shared.enums.ProcessorType;
+import rinha_backend_2025.paymentgateway.processor.ProcessorHealthTracker;
 
 import java.time.Duration;
 import java.time.Instant;

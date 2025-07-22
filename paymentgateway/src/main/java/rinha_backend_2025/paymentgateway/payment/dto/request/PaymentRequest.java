@@ -1,4 +1,4 @@
-package rinha_backend_2025.paymentgateway.dto;
+package rinha_backend_2025.paymentgateway.payment.dto.request;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

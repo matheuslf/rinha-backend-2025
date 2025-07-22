@@ -7,8 +7,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import rinha_backend_2025.paymentgateway.controller.PaymentController;
-import rinha_backend_2025.paymentgateway.service.PaymentService;
+import rinha_backend_2025.paymentgateway.payment.controller.PaymentController;
+import rinha_backend_2025.paymentgateway.payment.service.PaymentService;
 
 import java.util.Map;
 

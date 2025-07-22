@@ -1,9 +1,10 @@
-package rinha_backend_2025.paymentgateway.model;
+package rinha_backend_2025.paymentgateway.payment.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import rinha_backend_2025.paymentgateway.shared.enums.ProcessorType;
 
 import java.math.BigDecimal;
 import java.time.Instant;

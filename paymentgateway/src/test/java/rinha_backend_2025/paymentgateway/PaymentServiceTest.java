@@ -2,19 +2,10 @@ package rinha_backend_2025.paymentgateway;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import rinha_backend_2025.paymentgateway.dto.PaymentRequest;
-import rinha_backend_2025.paymentgateway.model.PaymentResult;
-import rinha_backend_2025.paymentgateway.model.ProcessorType;
-import rinha_backend_2025.paymentgateway.service.PaymentProcessorClient;
-import rinha_backend_2025.paymentgateway.service.PaymentService;
+import rinha_backend_2025.paymentgateway.payment.service.PaymentService;
 
-import java.math.BigDecimal;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class PaymentServiceTest {
 

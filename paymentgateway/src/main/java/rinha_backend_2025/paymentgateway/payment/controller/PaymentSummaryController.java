@@ -1,4 +1,4 @@
-package rinha_backend_2025.paymentgateway.controller;
+package rinha_backend_2025.paymentgateway.payment.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import rinha_backend_2025.paymentgateway.service.PaymentService;
+import rinha_backend_2025.paymentgateway.payment.service.PaymentService;
 
 import java.time.ZonedDateTime;
 import java.util.Map;
