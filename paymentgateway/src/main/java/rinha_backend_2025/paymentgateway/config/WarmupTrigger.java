@@ -19,6 +19,14 @@ public class WarmupTrigger {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
-        warmupService.run(restTemplate, serverPort);
+        new Thread(() -> {
+            try {
+                Thread.sleep(1000);
+                warmupService.run(restTemplate, serverPort);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }).start();
     }
+
 }

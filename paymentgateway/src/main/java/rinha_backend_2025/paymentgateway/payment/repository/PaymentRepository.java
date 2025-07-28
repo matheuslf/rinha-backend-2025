@@ -2,7 +2,6 @@ package rinha_backend_2025.paymentgateway.payment.repository;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 import rinha_backend_2025.paymentgateway.payment.dto.request.PaymentRequest;
