@@ -34,6 +34,6 @@ public class PaymentController {
     @GetMapping("/payments-summary")
     public PaymentSummary getPaymentsSummary(@RequestParam(required = false) OffsetDateTime from,
                                              @RequestParam(required = false) OffsetDateTime to) {
-        return repository.getSummary(from, to);
+        return repository.summarize(from, to);
     }
 }
