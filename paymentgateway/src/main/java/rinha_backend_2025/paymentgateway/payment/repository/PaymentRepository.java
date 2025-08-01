@@ -45,7 +45,10 @@ public class PaymentRepository {
 
     private PaymentSummary calculate(Set<String> entries) {
         if (entries == null || entries.isEmpty()) {
-            return null;
+            return new PaymentSummary(
+                    new PaymentSummary.Summary(0L, BigDecimal.ZERO),
+                    new PaymentSummary.Summary(0L, BigDecimal.ZERO)
+            );
         }
 
         long defaultCount = 0, fallbackCount = 0;
