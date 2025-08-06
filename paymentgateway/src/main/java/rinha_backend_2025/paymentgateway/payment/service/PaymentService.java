@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import rinha_backend_2025.paymentgateway.payment.dto.request.PaymentRequest;
 import rinha_backend_2025.paymentgateway.payment.repository.PaymentRepository;
@@ -20,7 +19,6 @@ public class PaymentService {
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
 
     private final PaymentRepository repository;
-    private final RestTemplate restTemplate;
     private final ExecutorService executorService;
     private final WebClient webClient;
 
@@ -34,12 +32,11 @@ public class PaymentService {
     private String fallbackUrlRaw;
 
     private String defaultUrl;
-    private String fallbackUrl;
 
     @PostConstruct
     private void init() {
         this.defaultUrl = defaultUrlRaw + "/payments";
-        this.fallbackUrl = fallbackUrlRaw + "/payments";
+        String fallbackUrl = fallbackUrlRaw + "/payments";
         log.info("Default service URL: {}", defaultUrl);
         log.info("Fallback service URL: {}", fallbackUrl);
     }
@@ -62,13 +59,11 @@ public class PaymentService {
         try {
             request.setDefaultTrue();
             webClient.post().uri(defaultUrl).bodyValue(request).retrieve();
-            //restTemplate.postForObject(defaultUrl, request, Object.class);
             persistAsync(request);
         } catch (Exception e1) {
             try {
                 request.setDefaultFalse();
                 webClient.post().uri(defaultUrl).bodyValue(request).retrieve();
-                //restTemplate.postForObject(fallbackUrl, request, Object.class);
                 persistAsync(request);
             } catch (Exception e2) {
                 retryWithDelay(request, attempt + 1);

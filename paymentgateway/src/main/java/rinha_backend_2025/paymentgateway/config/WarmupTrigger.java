@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Component
@@ -13,7 +12,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class WarmupTrigger {
 
     private final WarmupService warmupService;
-    private final RestTemplate restTemplate;
     private final WebClient webClient;
 
     @Value("${server.port}")
@@ -24,7 +22,7 @@ public class WarmupTrigger {
         new Thread(() -> {
             try {
                 Thread.sleep(1000);
-                warmupService.run(webClient, restTemplate, serverPort);
+                warmupService.run(webClient, serverPort);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
