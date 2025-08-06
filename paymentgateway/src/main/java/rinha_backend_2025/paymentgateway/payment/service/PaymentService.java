@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 import rinha_backend_2025.paymentgateway.payment.dto.request.PaymentRequest;
 import rinha_backend_2025.paymentgateway.payment.repository.PaymentRepository;
 
@@ -21,6 +22,7 @@ public class PaymentService {
     private final PaymentRepository repository;
     private final RestTemplate restTemplate;
     private final ExecutorService executorService;
+    private final WebClient webClient;
 
     // Executor para retries com delay controlado
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
@@ -59,12 +61,14 @@ public class PaymentService {
 
         try {
             request.setDefaultTrue();
-            restTemplate.postForObject(defaultUrl, request, Object.class);
+            webClient.post().uri(defaultUrl).bodyValue(request).retrieve();
+            //restTemplate.postForObject(defaultUrl, request, Object.class);
             persistAsync(request);
         } catch (Exception e1) {
             try {
                 request.setDefaultFalse();
-                restTemplate.postForObject(fallbackUrl, request, Object.class);
+                webClient.post().uri(defaultUrl).bodyValue(request).retrieve();
+                //restTemplate.postForObject(fallbackUrl, request, Object.class);
                 persistAsync(request);
             } catch (Exception e2) {
                 retryWithDelay(request, attempt + 1);

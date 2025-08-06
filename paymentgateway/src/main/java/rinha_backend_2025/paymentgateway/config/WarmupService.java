@@ -3,6 +3,7 @@ package rinha_backend_2025.paymentgateway.config;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -10,7 +11,7 @@ import java.util.concurrent.*;
 @Component
 public class WarmupService {
 
-    public void run(RestTemplate restTemplate, String serverPort) {
+    public void run(WebClient webclient, RestTemplate restTemplate, String serverPort) {
 
         final String url = "http://localhost:" + serverPort + "/payments";
         final String payloadTemplate = """
@@ -23,7 +24,7 @@ public class WarmupService {
         final int parallelism = getEnvOrDefault("REQUEST_WARMUP_PARALLELISM", 10);
         final int requests = getEnvOrDefault("REQUEST_WARMUP_COUNT", 100);
 
-        System.out.println("[warmup] Iniciando warmup com " + requests + " requests paralelos...");
+        //System.out.println("[warmup] Iniciando warmup com " + requests + " requests paralelos...");
 
         ExecutorService executor = Executors.newFixedThreadPool(parallelism);
 
@@ -36,7 +37,8 @@ public class WarmupService {
 
                 futures.add(CompletableFuture.runAsync(() -> {
                     try {
-                        restTemplate.postForObject(url, request, String.class);
+                        webclient.post().uri(url).bodyValue(payload).retrieve();
+                        //restTemplate.postForObject(url, request, String.class);
                     } catch (Exception e) {
                         System.err.println("Erro ao enviar warmup: " + e.getMessage());
                     }
