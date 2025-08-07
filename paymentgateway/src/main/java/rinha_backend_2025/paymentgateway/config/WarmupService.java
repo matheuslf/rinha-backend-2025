@@ -2,7 +2,7 @@ package rinha_backend_2025.paymentgateway.config;
 
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -10,7 +10,7 @@ import java.util.concurrent.*;
 @Component
 public class WarmupService {
 
-    public void run(RestTemplate restTemplate, String serverPort) {
+    public void run(WebClient webclient, String serverPort) {
 
         final String url = "http://localhost:" + serverPort + "/payments";
         final String payloadTemplate = """
@@ -32,11 +32,10 @@ public class WarmupService {
 
             for (int i = 0; i < requests; i++) {
                 String payload = String.format(payloadTemplate, UUID.randomUUID());
-                HttpEntity<String> request = new HttpEntity<>(payload, headers);
 
                 futures.add(CompletableFuture.runAsync(() -> {
                     try {
-                        restTemplate.postForObject(url, request, String.class);
+                        webclient.post().uri(url).bodyValue(payload).retrieve();
                     } catch (Exception e) {
                         System.err.println("Erro ao enviar warmup: " + e.getMessage());
                     }
